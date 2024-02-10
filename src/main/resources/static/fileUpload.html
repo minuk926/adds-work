@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <title>File upload</title>
+</head>
+<body>
+<section id="ex9">
+    <style>
+        #ex9 .upload-box {
+            width: 500px;
+            height: 300px;
+            border: 1px solid gray;
+            box-shadow: 2px 3px 9px hsl(0, 0%, 47%);
+            padding: 10px;
+        }
+    </style>
+    <h3>QR CODE 업로드 : 파일을 박스안으로 Drag & Drop 하세요</h3>
+    <div class="upload-box">
+        <!--        <button class="btn-upload">파일선택</button>-->
+        <!--        <input class="btn-file d-none" type="file"> -->
+    </div>
+</section>
+<hr>
+
+<script defer src="jsQR.js"></script>
+<script defer src="scan.js"></script>
+<script defer
+        src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous"></script>
+<script>
+    const sec9 = document.querySelector('#ex9');
+    const btnUpload = sec9.querySelector('.btn-upload');
+    const inputFile = sec9.querySelector('input[type="file"]');
+    const uploadBox = sec9.querySelector('.upload-box');
+
+    /* 박스 안에 Drag 들어왔을 때 */
+    uploadBox.addEventListener('dragenter', function (e) {
+        console.log('dragenter');
+    });
+
+    /* 박스 안에 Drag를 하고 있을 때 */
+    uploadBox.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        console.log('dragover');
+
+        const vaild = e.dataTransfer.types.indexOf('Files') >= 0;
+
+        if (!vaild) {
+            this.style.backgroundColor = 'red';
+        } else {
+            this.style.backgroundColor = 'green';
+        }
+    });
+
+    /* 박스 밖으로 Drag가 나갈 때 */
+    uploadBox.addEventListener('dragleave', function (e) {
+        console.log('dragleave');
+
+        this.style.backgroundColor = 'white';
+    });
+
+    /* 박스 안에서 Drag를 Drop했을 때 */
+    uploadBox.addEventListener('drop', function (e) {
+        e.preventDefault();
+
+        console.log('drop');
+        this.style.backgroundColor = 'white';
+
+        console.dir(e.dataTransfer);
+
+        //유효성 Check
+        if (!isValid(e.dataTransfer)) {
+            return;
+        }
+
+        const data = e.dataTransfer.files;
+        console.dir(data);
+
+        const formData = new FormData();
+        for (let i = 0; i < data.length; i++) {
+            formData.append('uploadFiles', data[i]);
+        }
+
+        requestSubmit({
+            url: '/qr/file/upload',
+            method: 'POST',
+            data: formData,
+            progress: () => {
+
+            },
+            loadend: (res) => {
+                alert(JSON.stringify(res));
+            },
+            error: (e) => {
+                console.error(e)
+            }
+        });
+    });
+
+    function isValid(data) {
+
+        //파일인지 유효성 검사
+        if (data.types.indexOf('Files') < 0) {
+            return false;
+        }
+
+        const files = data.files
+        //파일의 개수는 1개씩만 가능하도록 유효성 검사
+        // if (files.length > 1) {
+        //     alert('파일은 하나씩 전송이 가능합니다.');
+        //     return false;
+        // }
+
+        //이미지인지 유효성 검사
+        let isStop = false;
+        let fileInfos = [];
+        for (let i = 0; i < files.length; i++) {
+            if (files[i].type.indexOf('image') < 0) {
+                isStop = true;
+                alert('이미지 파일만 업로드 가능합니다.');
+                break;
+            }
+            //파일의 사이즈는 1MB 미만
+            if (files[i].size >= 1024 * 1024 * 2) {
+                isStop = true;
+                alert('1MB 이상인 파일은 업로드할 수 없습니다.');
+                break;
+            }
+            fileInfos[i] = {
+                fileName: files[i].name,
+                size: files[i].size
+            }
+        }
+
+        if (isStop) {
+            fileInfos = null;
+            return isStop;
+        }
+        alert(JSON.stringify(fileInfos));
+
+        return true;
+    }
+
+    /**
+     * <pre>
+     * file upload 요청
+     * obj = {
+     *     method: string
+     *     url: string
+     *     data: FormData
+     * }
+     *
+     * @param obj
+     * </pre>
+     */
+    function requestSubmit(obj) {
+        const xhr = new XMLHttpRequest();
+
+        /* 성공/에러 */
+        xhr.addEventListener('load', function () {
+            const data = xhr.responseText;
+
+            if (obj.load) {
+                obj.load(data);
+            }
+        });
+
+        /* 성공 */
+        xhr.addEventListener('loadend', function () {
+            const data = xhr.responseText;
+            console.log(data);
+
+            if (obj.loadend) {
+                obj.loadend(data);
+            }
+        });
+
+        /* 실패 */
+        xhr.addEventListener('error', function () {
+            console.log('파일 업로드 요청 중 에러 발생 : ' + xhr.status + ' / ' + xhr.statusText);
+
+            if (obj.error) {
+                obj.error(xhr, xhr.status, xhr.statusText);
+            }
+        });
+
+        /* 중단 */
+        xhr.addEventListener('abort', function () {
+            if (obj.abort) {
+                obj.abort(xhr);
+            }
+        });
+
+        /* 진행 */
+        xhr.upload.addEventListener('progress', function () {
+            if (obj.progress) {
+                obj.progress(xhr);
+            }
+        });
+
+        /* 요청 시작 */
+        xhr.addEventListener('loadstart', function () {
+            if (obj.loadstart) {
+                obj.loadstart(xhr);
+            }
+        });
+
+        const method = obj.method || 'GET';
+        const url = obj.url || '';
+        const data = obj.data || null;
+
+        if (obj.async === false) {
+            xhr.open(method, url, obj.async);
+        } else {
+            xhr.open(method, url, true);
+        }
+
+        if (obj.contentType) {
+            xhr.setRequestHeader('Content-Type', obj.contentType);
+        }
+
+        try {
+            xhr.send(data);
+            console.log(xhr.status)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    $(document).scannerDetection({
+        timeBeforeScanTest: 200, // wait for the next character for upto 200ms
+        startChar: [120], // Prefix character for the cabled scanner (OPL6845R)
+        endChar: [13], // be sure the scan is complete if key 13 (enter) is detected
+        avgTimeByChar: 40, // it's not a barcode if a character takes longer than 40ms
+        onComplete: function (barcode, qty) {
+
+            alert(barcode); // 바코드 출력
+
+        }
+    });
+</script>
+</body>
+</html>

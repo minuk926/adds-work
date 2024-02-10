@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="ZXing for JS">
+
+    <title>QR code reading</title>
+
+    <link rel="stylesheet" rel="preload" as="style" onload="this.rel='stylesheet';this.onload=null"
+          href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+    <link rel="stylesheet" rel="preload" as="style" onload="this.rel='stylesheet';this.onload=null"
+          href="https://unpkg.com/normalize.css@8.0.0/normalize.css">
+    <link rel="stylesheet" rel="preload" as="style" onload="this.rel='stylesheet';this.onload=null"
+          href="https://unpkg.com/milligram@1.3.0/dist/milligram.min.css">
+</head>
+
+<body>
+
+<main class="wrapper" style="padding-top:2em">
+
+    <section class="container" id="demo-content">
+        <h3 class="title">QR code Scan or image upload</h3>
+
+
+        <div id="divScan">
+            <div>
+                <a class="button" id="startButton">Start</a>
+                <a class="button" id="resetButton">Reset</a>
+            </div>
+            <div>
+                <video id="video" width="300" height="200" style="border: 1px solid gray"></video>
+            </div>
+
+            <div id="sourceSelectPanel" style="display:none">
+                <label for="sourceSelect">Change video source:</label>
+                <select id="sourceSelect" style="max-width:400px">
+                </select>
+            </div>
+        </div>
+
+        <div id="divImage" style="display: none;">
+            <div>
+                <!--                <img id="img" src="../../images/qr_code.png" style="width:300px; height: 200px; border: 1px solid gray"></img>-->
+                <div id="img" style="width:300px; height: 200px; border: 1px solid gray"></div>
+            </div>
+        </div>
+
+        <label>Result:</label>
+        <pre><code id="result"></code></pre>
+    </section>
+
+    <footer class="footer">
+        <section class="container">
+            <p></p>
+        </section>
+    </footer>
+
+</main>
+
+<!--<script type="text/javascript" src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>-->
+<script type="text/javascript" src="../../js/zxing-library-0.20.0.min.js"></script>
+<script type="text/javascript">
+    window.addEventListener('load', function () {
+        let selectedDeviceId;
+        let isScan = false;
+        const codeReader = new ZXing.BrowserMultiFormatReader()
+        console.log('ZXing code reader initialized')
+        codeReader.listVideoInputDevices()
+        .then((videoInputDevices) => {
+            if (videoInputDevices.length > 0) {
+                isScan = true
+                document.getElementById("divImage").style.display = 'none'
+                document.getElementById("divScan").style.display = 'block'
+                // temp code -----------------------------
+                //document.getElementById("divScan").style.display = 'none'
+                //isScan = false
+
+                //----------------------------------------
+                // chrome browser 인 경우에만
+                //----------------------------------------
+                const sourceSelect = document.getElementById('sourceSelect')
+                selectedDeviceId = videoInputDevices[0].deviceId
+
+                videoInputDevices.forEach((element) => {
+                    const sourceOption = document.createElement('option')
+                    sourceOption.text = element.label
+                    sourceOption.value = element.deviceId
+                    sourceSelect.appendChild(sourceOption)
+                })
+
+                sourceSelect.onchange = () => {
+                    selectedDeviceId = sourceSelect.value;
+                };
+                const sourceSelectPanel = document.getElementById('sourceSelectPanel')
+                sourceSelectPanel.style.display = 'block'
+                //--------------------------------------------
+
+                document.getElementById('startButton').addEventListener('click', () => {
+                    codeReader.decodeFromVideoDevice(selectedDeviceId, 'video', (result, err) => {
+                        if (result) {
+                            console.log(result)
+                            document.getElementById('result').textContent = result.text
+                        }
+                        if (err && !(err instanceof ZXing.NotFoundException)) {
+                            console.error(err)
+                            document.getElementById('result').textContent = err
+                        }
+                    })
+                    console.log(`Started continous decode from camera with id ${selectedDeviceId}`)
+                })
+            }
+
+            if (!isScan) {
+                document.getElementById("divScan").style.display = 'none'
+                document.getElementById("divImage").style.display = 'block'
+
+                const sec9 = document.querySelector('#divImage');
+                const uploadBox = sec9.querySelector('#img');
+
+                /* 박스 안에 Drag 들어왔을 때 */
+                uploadBox.addEventListener('dragenter', function (e) {
+                    console.log('dragenter');
+                });
+
+                /* 박스 안에 Drag를 하고 있을 때 */
+                uploadBox.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    console.log('dragover');
+
+                    const vaild = e.dataTransfer.types.indexOf('Files') >= 0;
+
+                    if (!vaild) {
+                        this.style.backgroundColor = 'red';
+                    } else {
+                        this.style.backgroundColor = 'green';
+                    }
+                });
+
+                /* 박스 밖으로 Drag가 나갈 때 */
+                uploadBox.addEventListener('dragleave', function (e) {
+                    console.log('dragleave');
+
+                    this.style.backgroundColor = 'white';
+                });
+
+                /* 박스 안에서 Drag를 Drop했을 때 */
+                uploadBox.addEventListener('drop', function (e) {
+                    e.preventDefault();
+
+                    console.log('drop');
+                    this.style.backgroundColor = 'white';
+
+                    console.dir(e.dataTransfer);
+
+                    //유효성 Check
+                    if (!isValid(e.dataTransfer)) {
+                        return;
+                    }
+
+                    const data = e.dataTransfer.files;
+                    console.dir(data);
+                    //
+                    const formData = new FormData();
+                    for (let i = 0; i < data.length; i++) {
+                        formData.append('uploadFiles', data[i]);
+                    }
+
+                    document.getElementById('result').textContent = ''
+                    requestSubmit({
+                        url: '/qr/file/upload',
+                        method: 'POST',
+                        data: formData,
+                        progress: () => {
+
+                        },
+                        loadend: (res) => {
+                            const data = JSON.parse(res)
+                            if (data[0].qrcode) {
+                                console.log(data[0].qrcode)
+                                document.getElementById('result').textContent = data[0].qrcode
+                                return true;
+                            }
+                            alert(JSON.stringify(data));
+
+                        },
+                        error: (e) => {
+                            console.error(e)
+                        }
+                    });
+                });
+
+                // document.getElementById('decodeButton').addEventListener('click', () => {
+                //     const img = document.getElementById('img')
+                //     codeReader.decodeFromImage(img).then((result) => {
+                //         console.log(result)
+                //         document.getElementById('result').textContent = result.text
+                //     }).catch((err) => {
+                //         console.error(err)
+                //         document.getElementById('result').textContent = err
+                //     })
+                //     console.log(`Started decode for image from ${img.src}`)
+                // })
+            }
+
+            document.getElementById('resetButton').addEventListener('click', () => {
+                codeReader.reset()
+                document.getElementById('result').textContent = '';
+                console.log('Reset.')
+            })
+
+        })
+        .catch((err) => {
+            console.error(err)
+        })
+
+    })
+
+    function isValid(data) {
+
+        //파일인지 유효성 검사
+        if (data.types.indexOf('Files') < 0) {
+            return false;
+        }
+
+        const files = data.files
+        //파일의 개수는 1개씩만 가능하도록 유효성 검사
+        if (files.length > 1) {
+            alert('파일은 하나씩 전송이 가능합니다.');
+            return false;
+        }
+
+        //이미지인지 유효성 검사
+        let isStop = false;
+        let fileInfos = [];
+        for (let i = 0; i < files.length; i++) {
+            if (files[i].type.indexOf('image') < 0) {
+                isStop = true;
+                alert('이미지 파일만 업로드 가능합니다.');
+                break;
+            }
+            //파일의 사이즈는 1MB 미만
+            if (files[i].size >= 1024 * 1024 * 2) {
+                isStop = true;
+                alert('1MB 이상인 파일은 업로드할 수 없습니다.');
+                break;
+            }
+            fileInfos[i] = {
+                fileName: files[i].name,
+                size: files[i].size
+            }
+        }
+
+        if (isStop) {
+            fileInfos = null;
+            return isStop;
+        }
+        alert(JSON.stringify(fileInfos));
+
+        return true;
+    }
+
+    /**
+     * <pre>
+     * file upload 요청
+     * obj = {
+     *     method: string
+     *     url: string
+     *     data: FormData
+     * }
+     *
+     * @param obj
+     * </pre>
+     */
+    function requestSubmit(obj) {
+        const xhr = new XMLHttpRequest();
+
+        /* 성공/에러 */
+        xhr.addEventListener('load', function () {
+            const data = xhr.responseText;
+
+            if (obj.load) {
+                obj.load(data);
+            }
+        });
+
+        /* 성공 */
+        xhr.addEventListener('loadend', function () {
+            const data = xhr.responseText;
+            console.log(data);
+
+            if (obj.loadend) {
+                obj.loadend(data);
+            }
+        });
+
+        /* 실패 */
+        xhr.addEventListener('error', function () {
+            console.log('파일 업로드 요청 중 에러 발생 : ' + xhr.status + ' / ' + xhr.statusText);
+
+            if (obj.error) {
+                obj.error(xhr, xhr.status, xhr.statusText);
+            }
+        });
+
+        /* 중단 */
+        xhr.addEventListener('abort', function () {
+            if (obj.abort) {
+                obj.abort(xhr);
+            }
+        });
+
+        /* 진행 */
+        xhr.upload.addEventListener('progress', function () {
+            if (obj.progress) {
+                obj.progress(xhr);
+            }
+        });
+
+        /* 요청 시작 */
+        xhr.addEventListener('loadstart', function () {
+            if (obj.loadstart) {
+                obj.loadstart(xhr);
+            }
+        });
+
+        const method = obj.method || 'GET';
+        const url = obj.url || '';
+        const data = obj.data || null;
+
+        if (obj.async === false) {
+            xhr.open(method, url, obj.async);
+        } else {
+            xhr.open(method, url, true);
+        }
+
+        if (obj.contentType) {
+            xhr.setRequestHeader('Content-Type', obj.contentType);
+        }
+
+        try {
+            xhr.send(data);
+            console.log(xhr.status)
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+</script>
+
+</body>
+
+</html>

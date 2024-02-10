@@ -1,0 +1,71 @@
+server:
+    port: 8080
+    max-http-request-header-size: 3KB
+    #    tomcat:
+    #        uri-encoding: UTF-8
+    servlet:
+        encoding:
+            enabled: true
+            charset: UTF-8
+            force: true
+
+spring:
+    profiles:
+        active: local
+    mvc:
+        # DispatcherServlet의 log 활성화 : logging.level.web = debug일 경우만
+        log-request-details: true
+    servlet:
+        multipart:
+            file-size-threshold: 1MB
+            max-file-size: 10MB
+            max-request-size: 10MB
+            enabled: true
+
+    devtools:
+        livereload:
+            enabled: true
+
+    jpa:
+        show-sql: false
+    #    properties:
+    #        hibernate:
+    #            #                connection:
+    #            #                    provider_class: false
+    #            format_sql: true
+    #            use_sql_comments: true
+
+
+logging:
+    level:
+        # DispatcherServlet의 log 활성화 : logging.level.web = debug일 경우만
+        web: debug
+        #        root: debug
+        #        javax: warn
+        #        org.apache: warn
+        #        #org.apache.coyote: debug
+        #        org.hibernate: warn
+        #        org.mariadb: warn
+        #        com.zaxxer.hikari.pool.HikariPool: warn
+        #        sun.rmi: warn
+        #        org.springframework: warn
+        com.fastcampus: debug
+
+decorator:
+    datasource:
+        datasource-proxy:
+            logging: slf4j
+            query:
+                enable-logging: true
+                log-level: debug
+
+        p6spy:
+
+            enable-logging: true
+            multiline: true
+            logging: slf4j
+            tracing:
+                include-parameter-values: true
+            #custom-appender-class: com.p6spy.engine.spy.appender.Slf4JLogger
+
+
