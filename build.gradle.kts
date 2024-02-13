@@ -21,7 +21,7 @@ java {
 }
 
 application {
-    mainClass = "kr.xit.KrXitApplication"
+    mainClass = "kr.xit.KrXitApplicationKt"
 }
 
 repositories {
