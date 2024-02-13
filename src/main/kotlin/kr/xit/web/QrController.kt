@@ -25,16 +25,10 @@ import javax.imageio.ImageIO
 
 @RestController
 class QrController {
-    // @PostMapping("/qr/file/upload", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     @PostMapping("/qr/file/upload")
     fun uploadQrCode(
-//        @RequestPart(
-//            required = false,
-//            name = "uploadFiles",
-//        )
         @RequestParam("uploadFiles")
         multipartFiles: List<MultipartFile>?,
-        // uploadFiles: MultipartFile[]?,
     ): List<Map<String, Any>> {
         val rtn = mutableListOf<Map<String, Any>>()
 
@@ -51,31 +45,29 @@ class QrController {
         return rtn
     }
 
-//    suspend fun uploadFile(multipartFile: MultipartFile): String {
-//        val multipartClient = HttpClient(CIO)
-//        val file = multipartFile.convert()
-//        val response = multipartClient.submitFormWithBinaryData<HttpResponse>(
-//            url = "$endpoint/your-api",
-//            formData = formData {
-//                append("file", file.readBytes(), Headers.build {
-//                    append(HttpHeaders.ContentType, Files.probeContentType(file.toPath()))
-//                    append(HttpHeaders.ContentDisposition, "filename=${file.name}")
-//                })
-//            }
-//        )
-
+    /**
+     * qr code 생성
+     * @param data : String
+     * @param format : BarcodeFormat.QR_CODE|BarcodeFormat.CODE_128|BarcodeFormat.EAN_13
+     * @param imgFormat : 생성할 qrcode image type PNG|JPG
+     *
+     * @return ResponseEntity<ByteArray> : 생성된 qrcode image
+     */
     @GetMapping("/qr/create")
     @Throws(WriterException::class, IOException::class)
-    fun qrToTistory(): ResponseEntity<ByteArray>? {
+    fun createQrcode(
+        data: String,
+        format: BarcodeFormat = BarcodeFormat.QR_CODE,
+        imgFormat: String = "PNG",
+    ): ResponseEntity<ByteArray>? {
         // QR 정보
         val width: Int = 200
         val height: Int = 200
-        val url = "https://lucas-owner.tistory.com/"
 
         // QR Code - BitMatrix: qr code 정보 생성
         val encode: BitMatrix =
             MultiFormatWriter()
-                .encode(url, BarcodeFormat.QR_CODE, width, height)
+                .encode(data, format, width, height)
 
         // QR Code - Image 생성. : 1회성으로 생성해야 하기 때문에
         // stream으로 Generate(1회성이 아니면 File로 작성 가능.)
@@ -90,34 +82,10 @@ class QrController {
                 .contentType(MediaType.IMAGE_PNG)
                 .body(out.toByteArray())
         } catch (e: Exception) {
+            e.printStackTrace()
             println("QR Code OutputStream 도중 Excpetion 발생, ${e.message}")
         }
 
-        return null
-    }
-
-    @GetMapping("/qr/image")
-    @Throws(WriterException::class, IOException::class)
-    fun qrToImage(): ResponseEntity<ByteArray>? {
-        val text = "http://localhost:8080/qr/get/image"
-
-        // QR
-        val width = 200
-        val height = 200
-
-        val encode = MultiFormatWriter().encode(text, BarcodeFormat.QR_CODE, width, height)
-
-        try {
-            val outputStream = ByteArrayOutputStream()
-
-            MatrixToImageWriter.writeToStream(encode, "PNG", outputStream)
-
-            return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .body(outputStream.toByteArray())
-        } catch (e: java.lang.Exception) {
-            e.message
-        }
         return null
     }
 
